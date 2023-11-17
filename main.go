@@ -2,55 +2,95 @@ package main
 
 import (
 	"os/exec"
-	"bytes"
 	"log"
-	"os"
 	"errors"
 	"strings"
 )
 
-// Helper function to run a command
-// return error, std_out, std_error
-func run_cmd(cmd_name string, cmd_args []string) (error,string,string) {
-	// run the command
-	cmd := exec.Command(cmd_name, cmd_args...)
+// the name of the `TUN` device being made
+const TUN_DEV_NAME = "tunmax"
 
-	// create the buffers where the output is stored
-	std_out := bytes.Buffer{}
-	std_err := bytes.Buffer{}
-
-	cmd.Stdout = &std_out
-	cmd.Stderr = &std_err
-
-	// run the command
-	err__run_cmd := cmd.Run()
-
-	if err__run_cmd != nil {
-		return err__run_cmd, std_out.String(),std_err.String()
+func create_tun_device() (error) {
+	create_tun_cmd := exec.Command("ip", "tuntap", "add", "mode", "tun", "name", TUN_DEV_NAME)
+	co, err__run_create_tun_cmd := create_tun_cmd.CombinedOutput()
+	if err__run_create_tun_cmd != nil {
+		return errors.New(string(co)) 
 	}
-
-	return nil, std_out.String(), std_err.String()
-}
-
-func create_tun_device(dev_name string) (error) {
-	// TODO: verify that dev_name is a valid device-name
-	if len(strings.Trim(dev_name, " \t\r\n")) == 0 {
-		return errors.New("device name can not be empty")
-	}
-	err__cmd_create_dev, _, cmd__create_dev_stderr := run_cmd("ip", []string{"tuntap", "add", "mode", "tun", "name", dev_name})
-	if err__cmd_create_dev != nil {
-		return errors.New(cmd__create_dev_stderr)
-	}
-	
+		
 	return nil
 }
 
-func main() {
-	err__create_device := create_tun_device("test")
-	if err__create_device != nil {
-		log.Printf("[ERROR]:%s\n", err__create_device)
-		os.Exit(1)
+// checks if the `TUN` module is loaded. 
+func check_tun_module() (error) {
+	lsmod_cmd := exec.Command("lsmod")
+	lsmod_cmd_stdout, err__lsmod_cmd := lsmod_cmd.Output()
+	if err__lsmod_cmd != nil {
+		return err__lsmod_cmd
 	}
 
-	log.Printf("[SUCCESS]: created tun interface successfully.")
+	// create the `grep` command
+	grep_cmd := exec.Command("grep", "tun")
+
+	grep_stdin_pipe, err__grep_stdin_pipe := grep_cmd.StdinPipe()
+	if err__grep_stdin_pipe != nil {
+		return err__grep_stdin_pipe
+	}
+
+	// write the `lsmod` output to it
+	grep_stdin_pipe.Write([]byte(lsmod_cmd_stdout))
+	grep_stdin_pipe.Close()
+
+	// get the output of the `grep` command
+	grep_cmd_stdout, err__run_grep_cmd := grep_cmd.Output()
+	if err__run_grep_cmd != nil {
+		return err__run_grep_cmd
+	}
+
+	// check if the outout of the grep command is empty
+	if len(strings.Trim(string(grep_cmd_stdout), " ")) == 0 {
+		return errors.New("tun module is not loaded.")
+	} 
+
+	return nil
+}
+
+// bring `UP` the created TUN device
+func up_tun_device() error {
+	up_cmd := exec.Command("ip", "link", "set", TUN_DEV_NAME, "up")
+	co, err__run_up_cmd := up_cmd.CombinedOutput()
+	if err__run_up_cmd != nil {
+		return errors.New(string(co))
+	}
+	return nil
+}
+
+func init_tun() {
+	// 1. Check if the `TUN` module is installed
+	err__check_tun_module := check_tun_module()
+	if err__check_tun_module != nil {
+		log.Fatalf("[ERROR]: %s\n", err__check_tun_module)
+	}
+	log.Printf("[CHECK]: tun module is loaded.\n")
+
+	// 2. Create the TUN device
+	err__create_device := create_tun_device()
+	if err__create_device != nil {
+		log.Fatalf("[ERROR]: %s\n", err__create_device)
+	}
+
+	log.Printf("[SUCCESS]: created tun interface [%s] successfully.\n", TUN_DEV_NAME)
+
+	// 3. Bring the device 'UP'
+	err__up_tun_device := up_tun_device()
+	if err__up_tun_device != nil {
+		log.Fatalf("[ERROR]: %s\n", err__up_tun_device)
+	}
+
+	log.Printf("[SUCCESS]: tun device %s is UP.\n", TUN_DEV_NAME)
+	// Assign an IP address and a Subnet Mask to the interface
+	// TODO: research on private IPs and how I can check if a certain range is available to use.
+}
+
+func main() {
+	init_tun()
 }
