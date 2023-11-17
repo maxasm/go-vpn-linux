@@ -73,5 +73,12 @@ func init_tun() {
 }
 
 func main() {
-	init_tun()
+	err__check_tun, _ := run_cmd(nil, "ip", []string{"link", "show", "dev", TUN_DEV_NAME})
+	if err__check_tun != nil {
+		log.Printf("[DEBUG]: %s\n", err__check_tun)
+		log.Printf("[DEBUG]: creating TUN device [%s]\n", TUN_DEV_NAME)
+		init_tun()
+	}
+
+	log.Printf("[DEBUG]: tun device [%s] is created.\n", TUN_DEV_NAME)
 }
