@@ -51,7 +51,18 @@ func epoll_fd(fd int) {
 	for {
 		n_events, err__wait := unix.EpollWait(ep_fd, event_store, -1)
 		if err__wait != nil {
-			dl.Fatalf("failed to wait for events on tun device\n")
+			// convert the error to `syscall.Errno`
+			// type unix.Errno syscall.Errno
+			if errno, ok__errno := err__wait.(unix.Errno); ok__errno {
+				// ignore system interrupts that will interupt `epoll_wait`
+				// https://stackoverflow.com/questions/6870158/epoll-wait-fails-due-to-eintr-how-to-remedy-this/6870391#6870391
+				if errno == unix.EINTR {
+					continue
+				}
+				dl.Printf("ERRNO: %d: %s\n", errno, unix.ErrnoName(errno))
+			} 
+
+			dl.Fatalf("failed to wait for events `epoll_wait`")
 		}
 
 		dl.Printf("got %d events.\n", n_events)

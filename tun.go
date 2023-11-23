@@ -40,7 +40,7 @@ func init_tun() {
 	dl.Printf("tun device %s is UP.\n", TUN_DEV_NAME)
 
 	// 4. Assign an IP address and a Subnet Mask to the interface
-	err__assign_ip,_ := run_cmd(nil, "ip", []string{"address", "add", "171.8.8.8/8", "dev", TUN_DEV_NAME})
+	err__assign_ip,_ := run_cmd(nil, "ip", []string{"address", "add", "172.18.8.8/16", "dev", TUN_DEV_NAME})
 	if err__assign_ip != nil {
 		dl.Fatalf("%s\n", err__assign_ip)
 	}
