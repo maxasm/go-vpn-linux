@@ -62,3 +62,23 @@ You can delete the TUN interface using the command below
 ```bash
 sudo ip tuntap del dev <tun-interface-name> mode tun
 ```
+
+## Install `net-tools` for Arch Linux
+
+By installing `net-tools` you get access to tools such as:
+  - ifconfig
+  - netstat
+  - route
+  - and more ...
+
+  You can search for the `core` packge using `yay`
+
+  ```bash
+  yay -Ss net-tools
+  ```
+
+  then install the package using the command
+
+  ```bash
+  yay -S core/net-tools <I guess this is the package name>
+  ```
